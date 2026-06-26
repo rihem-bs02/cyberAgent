@@ -9,6 +9,8 @@ GROQ_MODEL_HEAVY    = os.getenv("GROQ_MODEL_HEAVY",  "llama-3.3-70b-versatile")
 GROQ_MODEL_FAST     = os.getenv("GROQ_MODEL_FAST",   "qwen/qwen3-32b")
 LOCAL_MODEL         = os.getenv("LOCAL_MODEL",       "qwen")
 EMBEDDING_MODEL     = os.getenv("EMBEDDING_MODEL",    "BAAI/bge-small-en-v1.5")
+USE_OLLAMA          = os.getenv("USE_OLLAMA", "false").lower() == "true"
+OLLAMA_BASE_URL     = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 # ── Qdrant ─────────────────────────────────────────────
 QDRANT_HOST         = os.getenv("QDRANT_HOST", "localhost")

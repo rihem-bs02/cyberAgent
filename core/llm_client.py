@@ -7,15 +7,19 @@ from groq import Groq
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from loguru import logger
 import os, sys, json, time
+import litellm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from config.settings import GROQ_API_KEY, GROQ_MODEL_HEAVY, GROQ_MODEL_FAST
+from config.settings import (
+    GROQ_API_KEY, GROQ_MODEL_HEAVY, GROQ_MODEL_FAST,
+    LOCAL_MODEL, USE_OLLAMA, OLLAMA_BASE_URL
+)
 
 # Model assignments per task weight
 MODELS = {
     "heavy":  GROQ_MODEL_HEAVY,   # llama-3.3-70b-versatile  — orchestration, planning
     "fast":   GROQ_MODEL_FAST,    # qwen/qwen3-32b           — analysis, structured output
-    "local":  "qwen",                                        # offline fallback
+    "local":  LOCAL_MODEL,                                   # offline fallback
 }
 
 MAX_TOKENS   = 4096
@@ -28,10 +32,11 @@ _QWEN3_MODELS = {"qwen/qwen3-32b", "qwen3-32b"}
 class LLMClient:
 
     def __init__(self):
-        if not GROQ_API_KEY:
-            raise ValueError("GROQ_API_KEY not set in .env")
-        self.client = Groq(api_key=GROQ_API_KEY)
-        logger.info(f"LLM client initialized | heavy={MODELS['heavy']} fast={MODELS['fast']}")
+        if not USE_OLLAMA and not GROQ_API_KEY:
+            logger.warning("GROQ_API_KEY not set in .env, defaulting to Ollama")
+        
+        # We will use litellm for everything to seamlessly route to Ollama or Groq
+        logger.info(f"LLM client initialized | heavy={MODELS['heavy']} fast={MODELS['fast']} local={MODELS['local']}")
 
     def complete(
         self,
@@ -61,8 +66,14 @@ class LLMClient:
         tier     = model  or model_tier or "heavy"
         resolved = MODELS.get(tier, MODELS["heavy"])
 
+        is_ollama = USE_OLLAMA or tier == "local"
+        if is_ollama:
+            litellm_model = f"ollama/{resolved}"
+        else:
+            litellm_model = f"groq/{resolved}"
+
         kwargs = dict(
-            model    = resolved,
+            model    = litellm_model,
             messages = [
                 {"role": "system", "content": sys_msg},
                 {"role": "user",   "content": usr_msg},
@@ -70,8 +81,13 @@ class LLMClient:
             max_tokens  = max_tokens,
             temperature = temperature,
         )
+        if is_ollama:
+            kwargs["api_base"] = OLLAMA_BASE_URL
+        else:
+            kwargs["api_key"] = GROQ_API_KEY or "dummy"
 
         if json_mode:
+            # Note: Ollama format="json" mapping is handled automatically by litellm
             kwargs["response_format"] = {"type": "json_object"}
             # Qwen3 defaults to thinking mode — disable it so JSON output is clean
             if any(m in resolved.lower() for m in ("qwen3", "qwen/qwen3")):
@@ -80,7 +96,7 @@ class LLMClient:
         last_error = None
         for attempt in range(1, retries + 1):
             try:
-                response = self.client.chat.completions.create(**kwargs)
+                response = litellm.completion(**kwargs)
                 content  = response.choices[0].message.content
 
                 # Guard: Groq can return None content on empty model outputs
