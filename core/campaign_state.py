@@ -100,6 +100,9 @@ class CampaignState:
     report_path:   str             = ""
     attck_mapping: list[str]       = field(default_factory=list)  # [T1059, T1078, ...]
 
+    # ── ReAct trace (phase → list of step narratives) ──
+    react_traces:  dict            = field(default_factory=dict)
+
     def add_finding(self, **kwargs):
         f = Finding(**kwargs)
         self.findings.append(f)

@@ -27,13 +27,15 @@ COLLECTIONS = {
 # ── Neo4j ──────────────────────────────────────────────
 NEO4J_URI           = os.getenv("NEO4J_URI",      "bolt://localhost:7687")
 NEO4J_USER          = os.getenv("NEO4J_USER",     "neo4j")
-NEO4J_PASSWORD      = os.getenv("NEO4J_PASSWORD", "password")
+NEO4J_PASSWORD      = os.getenv("NEO4J_PASSWORD") or os.getenv("NEO4J_PASS") or "password"
 
 # ── NVD API ────────────────────────────────────────────
 NVD_API_KEY         = os.getenv("NVD_API_KEY", "")
 
 # ── Campaign ───────────────────────────────────────────
+SAFE_MODE           = os.getenv("SAFE_MODE", "true").lower() == "false"
 STEALTH_LEVEL       = os.getenv("STEALTH_LEVEL", "high")
 MAX_THREADS         = int(os.getenv("MAX_THREADS", 4))
 LOG_LEVEL           = os.getenv("LOG_LEVEL", "INFO")
 REPORTS_DIR         = os.getenv("REPORTS_DIR", "./reports")
+

@@ -1,18 +1,39 @@
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.git/
-.gitignore
-.agents/
-.gemini/
-.env
+.Python
+*.egg-info/
+dist/
+build/
+
+
+
+# Logs and reports (mounted as volumes)
 logs/
 reports/
-venv/
-.venv/
-lab_server_access.log
-.idea/
+
+# Raw data (too large for image — mounted as volume)
+data/raw/
+data/processed/
+
+# Git
+.git/
+.gitignore
+
+# IDE
 .vscode/
-*.bak
-*.tmp
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets (never bake into image)
+.env
+
+# Docker files themselves
+Dockerfile*
+docker-compose*
