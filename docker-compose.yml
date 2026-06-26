@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  redteam-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+    container_name: redteam-agent
+    environment:
+      - QDRANT_PATH=/dataset/qdrant
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-password}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - LOG_LEVEL=INFO
+    volumes:
+      - .:/app
+      # Mount the local Qdrant directory from the host to the container.
+      # Falls back to C:/Users/rihem/Desktop/datasetAGENT/qdrant if not specified on the host.
+      - ${QDRANT_PATH:-C:/Users/rihem/Desktop/datasetAGENT/qdrant}:/dataset/qdrant
+    depends_on:
+      - neo4j
+      - lab-target
+
+  lab-target:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+    container_name: lab-target
+    entrypoint: ["python", "lab_target_server.py"]
+    command: ["--host", "0.0.0.0", "--http-port", "8080"]
+    ports:
+      - "8080:8080"
+      - "2222:2222"
+      - "33060:33060"
+      - "6380:6380"
+
+  neo4j:
+    image: neo4j:5.28.0-community
+    container_name: neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-password}
+      - NEO4J_PLUGINS=["apoc"]
+    volumes:
+      - neo4j_data:/data
+
+volumes:
+  neo4j_data:

@@ -1,0 +1,39 @@
+
+# ── Core agent frameworks ──────────────────────────────
+# NOTE: requires Python 3.10–3.13 (NOT 3.14+)
+agno>=2.6.0
+autogen-agentchat>=0.7.5
+crewai>=1.14.0
+crewai-tools>=0.47.0
+ 
+# ── LLM backends ───────────────────────────────────────
+groq>=0.13.1
+litellm>=1.55.8
+ 
+# ── Vector store ───────────────────────────────────────
+qdrant-client>=1.13.2
+sentence-transformers>=3.4.1
+ 
+# ── Graph database ─────────────────────────────────────
+neo4j>=5.28.0
+ 
+# ── Persistent memory ──────────────────────────────────
+letta-client>=1.12.0
+ 
+# ── Data ingestion ─────────────────────────────────────
+requests>=2.32.3
+aiohttp>=3.11.11
+tqdm>=4.67.1
+pyyaml>=6.0.2
+stix2>=3.0.1
+taxii2-client>=2.3.0
+ 
+# ── Tooling / utilities ────────────────────────────────
+python-nmap>=0.7.1
+python-dotenv>=1.0.1
+pydantic>=2.10.4
+rich>=13.9.4
+loguru>=0.7.3
+tenacity>=9.0.0
+pandas>=2.2.3
+numpy>=2.2.1
