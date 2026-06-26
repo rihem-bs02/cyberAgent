@@ -33,13 +33,13 @@ if not exist ".env" (
         echo # ── Models ─────────────────────────────────────────────
         echo GROQ_MODEL_HEAVY=llama-3.3-70b-versatile
         echo GROQ_MODEL_FAST=qwen-qwq-32b
-        echo OLLAMA_MODEL=qwen2.5:7b-instruct
+        echo LOCAL_MODEL=qwen
         echo EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
         echo.
         echo # ── Qdrant ─────────────────────────────────────────────
         echo QDRANT_HOST=localhost
         echo QDRANT_PORT=6333
-        echo QDRANT_PATH=C:\Users\rihem\Desktop\datasetAGENT\qdrant
+        echo QDRANT_PATH=./qdrant
         echo.
         echo # ── Neo4j ──────────────────────────────────────────────
         echo NEO4J_URI=bolt://localhost:7687

@@ -17,8 +17,8 @@ services:
     volumes:
       - .:/app
       # Mount the local Qdrant directory from the host to the container.
-      # Falls back to C:/Users/rihem/Desktop/datasetAGENT/qdrant if not specified on the host.
-      - ${QDRANT_PATH:-C:/Users/rihem/Desktop/datasetAGENT/qdrant}:/dataset/qdrant
+      # Falls back to ./qdrant if not specified on the host.
+      - ${QDRANT_PATH:-./qdrant}:/dataset/qdrant
     depends_on:
       - neo4j
       - lab-target

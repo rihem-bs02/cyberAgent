@@ -560,20 +560,29 @@ JWT_SECRET=not_a_real_secret
         """Discover live hosts in a subnet."""
         return self.nmap_scan(target, args="-sn -T4 --min-rate 1000", timeout=timeout)
 
+    # Covers top pentesting services without triggering timeout
+    _ESSENTIAL_PORTS = (
+        "21,22,23,25,53,80,110,111,135,139,143,443,445,"
+        "512,513,514,993,995,1433,1521,2049,3306,3389,"
+        "5432,5900,5985,6379,8080,8443,8888,9200,27017"
+    )
+
     def nmap_port_scan(
         self,
         host:    str,
-        ports:   str = "21,22,23,25,53,80,110,135,139,143,443,445,3306,3389,5900,8080,8443",
-        stealth: str = "high",
-        timeout: int = 180,
+        ports:   str = None,
+        stealth: str = "medium",
+        timeout: int = 300,
     ) -> ToolResult:
-        """Stealth-configurable port + version scan."""
+        """Stealth-configurable port + version scan on essential ports only."""
+        if ports is None:
+            ports = self._ESSENTIAL_PORTS
         stealth_map = {
-            "high":   f"-sS -T2 -p {ports} -sV --version-intensity 3 --open",
-            "medium": f"-sS -T3 -p {ports} -sV --open",
+            "high":   f"-sS -T2 -p {ports} -sV --version-intensity 2 --open",
+            "medium": f"-sS -T3 -p {ports} -sV --version-intensity 3 --open",
             "low":    f"-sA -T4 -p {ports} -sV -sC --open",
         }
-        args = stealth_map.get(stealth, stealth_map["high"])
+        args = stealth_map.get(stealth, stealth_map["medium"])
         return self.nmap_scan(host, args=args, timeout=timeout)
 
     def nmap_vuln_scan(self, host: str, ports: str, timeout: int = 300) -> ToolResult:
@@ -689,9 +698,44 @@ JWT_SECRET=not_a_real_secret
 
     # ── Dispatch by name ──────────────────────────────────────────────────────
 
+    # Safe port list — enforced by dispatch() regardless of LLM choice
+    _SAFE_PORTS = (
+        "21,22,23,25,53,80,110,111,135,139,143,443,445,"
+        "512,513,514,993,995,1433,1521,2049,3306,3389,"
+        "5432,5900,5985,6379,8080,8443,8888,9200,27017"
+    )
+
+    # Patterns the LLM sometimes uses that cause timeouts — always blocked
+    _BANNED_PORT_PATTERNS = (
+        "1-65535", "0-65535", "1-65534",
+        "1-10000", "1-5000",  "1-2000",
+        "1-1024",  "0-1024",
+    )
+
+    def _sanitize_nmap_args(self, args: dict) -> dict:
+        """
+        Safety net: strip any wide port range from LLM-supplied nmap args
+        and replace with the essential 33-port list. Logs a warning so the
+        operator can see when the LLM tried to scan 65535 ports.
+        """
+        import copy
+        args = copy.copy(args)
+        ports = str(args.get("ports", ""))
+        if ports and any(banned in ports for banned in self._BANNED_PORT_PATTERNS):
+            logger.warning(
+                f"[Sanitizer] LLM requested banned port range '{ports}' — "
+                f"replacing with essential {len(self._SAFE_PORTS.split(','))} ports to avoid timeout."
+            )
+            args["ports"] = self._SAFE_PORTS
+        # Also enforce stealth default to medium if not specified explicitly
+        if "stealth" not in args:
+            args["stealth"] = "medium"
+        return args
+
     def dispatch(self, tool: str, args: dict) -> ToolResult:
         """
         Route a tool call by name — used by the ReAct agent.
+        Applies port sanitization on all nmap calls before execution.
 
         Supported tools:
             run_command, http_probe, nmap_ping_sweep, nmap_port_scan,
@@ -699,6 +743,12 @@ JWT_SECRET=not_a_real_secret
             nikto_scan, gobuster_scan
         """
         tool = tool.lower().strip()
+
+        # Sanitize port arguments for nmap calls before dispatch
+        nmap_tools = {"nmap_port_scan", "nmap_vuln_scan", "nmap_scan"}
+        if tool in nmap_tools:
+            args = self._sanitize_nmap_args(args)
+
         dispatch_map = {
             "run_command":        lambda a: self.run_command(**a),
             "shell":              lambda a: self.run_command(**a),
@@ -740,20 +790,51 @@ JWT_SECRET=not_a_real_secret
         """
         Returns a structured description of all tools for LLM system prompts.
         """
-        return """
-Available tools for the ReAct agent (specify as JSON):
+        safe_ports = self._SAFE_PORTS
+        return f"""
+Available tools (specify args as JSON dict):
 
-1. nmap_ping_sweep   — {"target": "192.168.1.0/24"}
-2. nmap_port_scan    — {"host": "10.0.0.1", "ports": "22,80,443", "stealth": "high"}
-3. nmap_vuln_scan    — {"host": "10.0.0.1", "ports": "80,443"}
-4. http_probe        — {"url": "http://target/", "method": "GET", "headers": {}, "params": {}}
-5. curl_request      — {"url": "http://target/", "method": "GET", "opts": "-L -k -s -i"}
-6. sqlmap_scan       — {"url": "http://target/login.php", "data": "user=admin&pass=test"}
-7. nikto_scan        — {"host": "10.0.0.1", "port": 80, "ssl": false}
-8. gobuster_scan     — {"url": "http://10.0.0.1/"}
-9. msf_resource_script — {"script_content": "use exploit/...\\nset RHOSTS ...\\nrun"}
-10. run_command      — {"command": "any shell command", "timeout": 30}
+1. nmap_ping_sweep
+   Args: {{"target": "192.168.1.0/24"}}
+   Use: discover live hosts. Always run this first.
 
-Output format: {"tool": "<name>", "args": {<args dict>}, "reason": "<why>", "done": false}
-Set "done": true when the phase objective is achieved.
+2. nmap_port_scan
+   Args: {{"host": "10.0.0.1", "stealth": "medium"}}
+   ⚠  OMIT "ports" to use safe default (33 essential ports, ~15s per host).
+   ⚠  If specifying ports, use SHORT comma-separated lists only: "22,80,443"
+   ❌ NEVER use "1-65535", "1-1024" or any range — they ALWAYS timeout.
+   Default ports covered: {safe_ports}
+
+3. nmap_vuln_scan
+   Args: {{"host": "10.0.0.1", "ports": "80,443,22"}}
+   Use: run NSE vuln/auth scripts on specific OPEN ports already discovered.
+   ⚠  Only pass ports confirmed open in a previous nmap_port_scan.
+
+4. http_probe
+   Args: {{"url": "http://target/", "method": "GET", "headers": {{}}, "params": {{}}}}
+   Use: fingerprint web apps, test endpoints, check for login pages.
+
+5. curl_request
+   Args: {{"url": "http://target/", "method": "GET", "opts": "-L -k -s -i"}}
+   Use: raw HTTP probing, WAF bypass, custom header injection.
+
+6. sqlmap_scan
+   Args: {{"url": "http://target/login.php", "data": "user=admin&pass=test"}}
+   Use: automated SQL injection testing on form endpoints.
+
+7. nikto_scan
+   Args: {{"host": "10.0.0.1", "port": 80, "ssl": false}}
+   Use: web server vulnerability scanning.
+
+8. gobuster_scan
+   Args: {{"url": "http://10.0.0.1/"}}
+   Use: directory and file brute-force on web servers.
+
+9. msf_resource_script
+   Args: {{"script_content": "use exploit/...\\nset RHOSTS ...\\nrun"}}
+   Use: Metasploit exploitation via resource scripts.
+
+10. run_command
+    Args: {{"command": "any shell command", "timeout": 30}}
+    Use: general shell commands — privesc enumeration, lateral movement, exfil.
 """

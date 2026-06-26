@@ -7,7 +7,7 @@ load_dotenv()
 GROQ_API_KEY        = os.getenv("GROQ_API_KEY")
 GROQ_MODEL_HEAVY    = os.getenv("GROQ_MODEL_HEAVY",  "llama-3.3-70b-versatile")
 GROQ_MODEL_FAST     = os.getenv("GROQ_MODEL_FAST",   "qwen-qwq-32b")
-OLLAMA_MODEL        = os.getenv("OLLAMA_MODEL",       "qwen2.5:7b-instruct")
+LOCAL_MODEL         = os.getenv("LOCAL_MODEL",       "qwen")
 EMBEDDING_MODEL     = os.getenv("EMBEDDING_MODEL",    "BAAI/bge-small-en-v1.5")
 
 # ── Qdrant ─────────────────────────────────────────────

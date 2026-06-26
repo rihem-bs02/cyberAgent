@@ -15,7 +15,7 @@ from config.settings import GROQ_API_KEY, GROQ_MODEL_HEAVY, GROQ_MODEL_FAST
 MODELS = {
     "heavy":  GROQ_MODEL_HEAVY,   # llama-3.3-70b-versatile  — orchestration, planning
     "fast":   GROQ_MODEL_FAST,    # qwen/qwen3-32b           — analysis, structured output
-    "local":  "ollama/qwen2.5:7b-instruct",                  # offline fallback
+    "local":  "qwen",                                        # offline fallback
 }
 
 MAX_TOKENS   = 4096

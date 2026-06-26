@@ -59,25 +59,37 @@ class NmapTool:
             logger.error(f"Ping sweep failed: {e}")
             return [target]
 
+    # Essential ports only — covers the most common attack surfaces without
+    # scanning all 65535 ports which causes timeouts on T2/T3 timing.
+    ESSENTIAL_PORTS = (
+        "21,22,23,25,53,80,110,111,135,139,143,443,445,"
+        "512,513,514,993,995,1433,1521,2049,3306,3389,"
+        "5432,5900,5985,6379,8080,8443,8888,9200,27017"
+    )
+
     def port_scan(
         self,
         host: str,
-        stealth: str = "high",
-        ports: str = "1-1024,3306,3389,5432,5900,8080,8443,9200,27017"
+        stealth: str = "medium",
+        ports: str = None
     ) -> dict:
         """
         Phase 2 — scan ports and detect services on a single host.
-        stealth: high → SYN scan slow | medium → SYN normal | low → aggressive
+        stealth: high → SYN scan T2 | medium → SYN T3 (default) | low → aggressive T4
+        Uses ESSENTIAL_PORTS by default (~33 ports) to avoid timeout.
         Returns structured dict: {port: {state, service, version, product}}
         """
         if not self.is_available():
             logger.warning("Nmap unavailable — returning empty port scan")
             return {}
 
+        if ports is None:
+            ports = self.ESSENTIAL_PORTS
+
         # Stealth-based scan arguments
         stealth_args = {
-            "high":   f"-sS -T2 -p {ports} -sV --version-intensity 3 --open",
-            "medium": f"-sS -T3 -p {ports} -sV --open",
+            "high":   f"-sS -T2 -p {ports} -sV --version-intensity 2 --open",
+            "medium": f"-sS -T3 -p {ports} -sV --version-intensity 3 --open",
             "low":    f"-sS -T4 -p {ports} -sV -sC --open",
         }
         args = stealth_args.get(stealth, stealth_args["high"])

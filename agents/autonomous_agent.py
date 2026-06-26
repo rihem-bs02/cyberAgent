@@ -27,19 +27,44 @@ from agents.tools.tool_registry import ToolRegistry, ToolResult
 from knowledge.qdrant.rag_retriever import RAGRetriever
 
 
+# ── Essential ports list (shared constant — must match tool_registry) ────────
+# 33 ports covering the most critical attack surfaces without timeout risk.
+# The LLM is instructed to use ONLY these — never 1-65535 or 1-1024.
+ESSENTIAL_PORTS = (
+    "21,22,23,25,53,80,110,111,135,139,143,443,445,"
+    "512,513,514,993,995,1433,1521,2049,3306,3389,"
+    "5432,5900,5985,6379,8080,8443,8888,9200,27017"
+)
+
 # ── Phase system prompts ───────────────────────────────────────────────────────
 
 PHASE_SYSTEM_PROMPTS: dict[str, str] = {
-    "recon": """You are an expert network reconnaissance AI pentester.
-Your goal: discover live hosts, open ports, running services on the target network.
-Use nmap_ping_sweep to find live hosts, then nmap_port_scan for detailed port info.
-Analyze each tool output carefully before choosing the next action.
-When you have a clear picture of live hosts and services, set done=true.""",
+    "recon": f"""You are an expert network reconnaissance AI pentester.
+
+Your goal: discover live hosts and open services on the target network.
+
+STRICT WORKFLOW — follow in order:
+  Step 1 — nmap_ping_sweep on the provided target. If the target is a subnet (e.g., /24), scan the entire subnet to find live hosts. If the target is a single host, scan ONLY this host and do NOT scan the subnet behind it.
+  Step 2 — nmap_port_scan on EACH live host individually.
+  Step 3 — If web ports (80/443/8080/8443) are found, run http_probe.
+  Step 4 — Set done=true once you have service info for all live hosts.
+
+PORT SCAN RULES — MANDATORY:
+  - ALWAYS pass stealth="medium" (T3, fast enough, not flagged).
+  - NEVER pass ports="1-65535" or ports="1-1024" — these ALWAYS timeout.
+  - You MAY omit the "ports" argument entirely to use the safe default.
+  - If you want specific ports, use a short comma-separated list only, e.g.:
+      "ports": "22,80,443,3306,8080"
+  - The safe default already covers: {ESSENTIAL_PORTS}
+
+REMEMBER: A timed-out scan gives zero data. Short focused scans give real data.""",
 
     "scanning": """You are an expert vulnerability scanning AI pentester.
 Your goal: identify exploitable vulnerabilities on discovered hosts.
 Use nmap_vuln_scan on open ports, http_probe to fingerprint web apps, nikto for web vulns.
-Correlate findings with CVEs. When you have actionable vulnerabilities, set done=true.""",
+Correlate findings with CVEs. When you have actionable vulnerabilities, set done=true.
+
+PORT RULES: Use only specific open ports discovered in RECON — never scan 1-65535.""",
 
     "exploitation": """You are an expert exploitation AI pentester.
 Your goal: gain initial access by exploiting discovered vulnerabilities.
@@ -73,6 +98,16 @@ You must use the provided tools to actually probe the target — do NOT fabricat
 {phase_prompt}
 
 {tools_schema}
+
+══════════════════════════════════════════════
+⚠  HARD CONSTRAINTS — VIOLATING THESE CAUSES TIMEOUTS AND WASTED STEPS:
+1. NEVER use ports="1-65535" or ports="1-1024". These ALWAYS timeout (300s+).
+2. NEVER scan multiple comma-separated hosts in one nmap_port_scan call — scan one host at a time.
+3. For nmap_port_scan, OMIT the "ports" arg to use the safe 33-port default, OR pass a
+   short specific list: e.g. "ports": "22,80,443,8080".
+4. Use stealth="medium" (T3) unless the campaign explicitly requires "high" (T2 — slow).
+5. Do NOT repeat the same scan you already ran — check action history before acting.
+══════════════════════════════════════════════
 
 You must respond with valid JSON only:
 {{
