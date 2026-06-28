@@ -1,43 +1,74 @@
-# Use an official Python runtime as a parent image
-FROM python:3.11-slim
 
-# Prevent python from writing pyc files and buffering stdout/stderr
-ENV PYTHONDONTWRITEBYTECODE=1
+# ── Red Team Agent — Dockerfile ───────────────────────────────────────────────
+# Base: Kali Linux rolling (has nmap, netcat, curl pre-available)
+# Python: 3.11 pinned explicitly
+# ─────────────────────────────────────────────────────────────────────────────
+ 
+FROM kalilinux/kali-rolling:latest
+ 
+# ── Metadata ──────────────────────────────────────────────────────────────────
+LABEL maintainer="RedTeam Agent"
+LABEL description="Autonomous AI Red Team Agent — MedFlow Healthcare"
+LABEL version="2.0"
+ 
+# ── Avoid interactive prompts during apt ──────────────────────────────────────
+ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
-
-# Install system dependencies
+ENV PYTHONDONTWRITEBYTECODE=1
+ 
+# ── Install system dependencies ───────────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Python 3.11
+    python3.11 \
+    python3.11-dev \
+    python3.11-venv \
+    python3-pip \
+    # Security tools
     nmap \
+    netcat-openbsd \
     curl \
+    wget \
     git \
+    # Build tools (needed for some pip packages)
     build-essential \
+    libssl-dev \
+    libffi-dev \
+    # Network tools
+    dnsutils \
+    iputils-ping \
+    net-tools \
+    # Utilities
+    jq \
+    nano \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-
-# Set the working directory in the container
+ 
+# ── Set Python 3.11 as default ────────────────────────────────────────────────
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
+    && update-alternatives --install /usr/bin/python  python  /usr/bin/python3.11 1
+ 
+# ── Upgrade pip ───────────────────────────────────────────────────────────────
+RUN python3.11 -m pip install --upgrade pip setuptools wheel --break-system-packages
+ 
+# ── Set working directory ─────────────────────────────────────────────────────
 WORKDIR /app
-
-# Copy requirements.txt first to leverage Docker cache
+ 
+# ── Install Python dependencies first (layer cache optimization) ──────────────
 COPY requirements.txt .
-
-# Upgrade pip
-RUN pip install --no-cache-dir --upgrade pip
-
-# Install CPU-only torch first to avoid massive CUDA packages and cache it
-RUN pip install --no-cache-dir --default-timeout=1000 torch --index-url https://download.pytorch.org/whl/cpu
-
-# Install the rest of the requirements
-RUN pip install --no-cache-dir --default-timeout=1000 --retries 20 -r requirements.txt
-
-# Copy the rest of the application code
+RUN python3.11 -m pip install -r requirements.txt --break-system-packages
+ 
+# ── Copy project files ────────────────────────────────────────────────────────
 COPY . .
-
-# Convert Windows line endings to Unix line endings for entrypoint.sh and redteam.sh
-RUN sed -i 's/\r$//' entrypoint.sh redteam.sh || true && \
-    chmod +x entrypoint.sh redteam.sh || true
-
-# Expose ports for lab target server
-EXPOSE 8080 2222 33060 6380
-
-# Set default entrypoint and command
-ENTRYPOINT ["/app/entrypoint.sh"]
+ 
+# ── Create necessary directories ──────────────────────────────────────────────
+RUN mkdir -p /app/reports \
+             /app/logs \
+             /app/data/raw \
+             /app/data/processed
+ 
+# ── Set nmap capabilities (allows SYN scan without full root) ─────────────────
+RUN setcap cap_net_raw,cap_net_admin+eip /usr/bin/nmap || true
+ 
+# ── Default entrypoint ────────────────────────────────────────────────────────
+ENTRYPOINT ["python3.11", "main.py"]
 CMD ["--help"]
