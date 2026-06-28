@@ -1,80 +1,53 @@
 """
-Red Team Agent — Main Entry Point
-Usage:
-    python main.py --target 192.168.1.0/24
-    python main.py --target medflow.local --stealth high
-    python main.py --target 10.10.10.50 --objective "Compromise domain controller"
+Red Team Agent — Main Entry Point (v2 — Autonomous)
 """
 import argparse, sys, os, io
 from loguru import logger
 from rich.console import Console
 
-# ── Force UTF-8 output on Windows to avoid CP1252 UnicodeEncodeError ─────────
 if sys.stdout.encoding and sys.stdout.encoding.upper() != "UTF-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 if sys.stderr.encoding and sys.stderr.encoding.upper() != "UTF-8":
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-# ── Add project root to path ──────────────────────────────────────────────────
 sys.path.insert(0, os.path.dirname(__file__))
 
-from agents.orchestrator.campaign_orchestrator import CampaignOrchestrator
-from config.settings import STEALTH_LEVEL
+from agents.autonomous_agent import AutonomousAgent
 
 console = Console(force_terminal=True, highlight=False)
-
-# ── IMPORTANT: update this to your actual Qdrant data path ───────────────────
-DEFAULT_QDRANT_PATH = "/dataset/qdrant"
-
+DEFAULT_QDRANT_PATH = os.getenv("QDRANT_PATH", "/dataset/qdrant")
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Autonomous Red Team Agent — MedFlow Healthcare Infrastructure"
-    )
-    parser.add_argument(
-        "--target", required=True,
-        help="Target IP, subnet, hostname, or CIDR (e.g. 192.168.1.0/24)"
-    )
-    parser.add_argument(
-        "--objective", default="",
-        help="Campaign objective (default: full compromise)"
-    )
-    parser.add_argument(
-        "--stealth", default=STEALTH_LEVEL, choices=["low", "medium", "high"],
-        help="Stealth level (default: high)"
-    )
-    parser.add_argument(
-        "--qdrant-path", default=DEFAULT_QDRANT_PATH,
-        help="Path to your local Qdrant data directory"
-    )
+    parser = argparse.ArgumentParser(description="Autonomous Red Team Agent")
+    parser.add_argument("--target",      required=True)
+    parser.add_argument("--objective",   default="")
+    parser.add_argument("--stealth",     default="high", choices=["low","medium","high"])
+    parser.add_argument("--qdrant-path", default=DEFAULT_QDRANT_PATH)
+    parser.add_argument("--steps",       default=40, type=int)
     args = parser.parse_args()
 
-    # ── Configure logging ─────────────────────────────────────────────────────
     logger.remove()
-    logger.add(sys.stderr, level="INFO", format="<green>{time:HH:mm:ss}</green> | <level>{level}</level> | {message}")
-    logger.add(
-        f"logs/campaign_{args.target.replace('/', '_').replace('.', '_')}.log",
-        level="DEBUG", rotation="10 MB"
-    )
+    logger.add(sys.stderr, level="INFO",
+               format="<green>{time:HH:mm:ss}</green> | <level>{level}</level> | {message}")
     os.makedirs("logs", exist_ok=True)
+    logger.add(f"logs/campaign_{args.target.replace('/','_').replace('.','_')}.log",
+               level="DEBUG", rotation="10MB")
 
-    # ── Run ───────────────────────────────────────────────────────────────────
     console.print(f"\n[bold red]>> Red Team Agent Starting[/bold red]")
-    console.print(f"  Target      : [cyan]{args.target}[/cyan]")
-    console.print(f"  Stealth     : [green]{args.stealth}[/green]")
-    console.print(f"  Qdrant path : [dim]{args.qdrant_path}[/dim]\n")
+    console.print(f"  Target  : [cyan]{args.target}[/cyan]")
+    console.print(f"  Stealth : [green]{args.stealth}[/green]")
+    console.print(f"  Qdrant  : [dim]{args.qdrant_path}[/dim]\n")
 
-    orchestrator = CampaignOrchestrator(
-        qdrant_path=args.qdrant_path,
-        stealth_level=args.stealth,
+    # Import MAX_STEPS and patch it
+    import agents.autonomous_agent as agent_module
+    agent_module.MAX_STEPS = args.steps
+
+    agent = AutonomousAgent(qdrant_path=args.qdrant_path)
+    agent.run(
+        target    = args.target,
+        objective = args.objective or f"Full compromise of {args.target}",
+        stealth   = args.stealth,
     )
-    state = orchestrator.run(
-        target_input=args.target,
-        objective=args.objective,
-    )
-
-    sys.exit(0 if state.current_phase.value == "complete" else 1)
-
 
 if __name__ == "__main__":
     main()

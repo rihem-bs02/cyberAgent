@@ -236,29 +236,44 @@ def tool_report_finding(args):
     })
 
 # ── Registry ──────────────────────────────────────────────────────────────────
+
+# ── Registry ─────────────────────────────────────────────
 TOOLS = {
-    "tcp_scan":        {"fn": tool_tcp_scan,        "description": "TCP port scan. Args: host (str), ports (list or str like '1-1000'), timeout (float)"},
-    "nmap_port_scan":  {"fn": tool_nmap_port_scan,  "description": "Nmap port scan. Args: host (str), ports (str like '1-1000' or '80,443'), flags (str optional)"},
-    "nmap_ping_sweep": {"fn": tool_nmap_ping_sweep, "description": "Nmap ping sweep to find live hosts. Args: target (str, can be subnet like 192.168.1.0/24)"},
-    "nmap_vuln_scan":  {"fn": tool_nmap_vuln_scan,  "description": "Nmap vulnerability scan with NSE scripts. Args: host (str), ports (str optional)"},
-    "http_probe":      {"fn": tool_http_probe,      "description": "Probe HTTP/HTTPS endpoint. Args: url (str), method (str), headers (dict), data (str)"},
-    "http":            {"fn": tool_http_probe,      "description": "Alias for http_probe. Args: url (str)"},
-    "dns_resolve":     {"fn": tool_dns_resolve,     "description": "Resolve hostname to IP. Args: hostname (str)"},
-    "run_command":     {"fn": tool_run_command,     "description": "Run security tool command. Args: command (str), timeout (int). Allowed: nmap, curl, nikto, sqlmap, gobuster, whatweb, hydra, searchsploit, etc."},
-    "shell":           {"fn": tool_shell,           "description": "Alias for run_command. Args: command (str), timeout (int)"},
-    "search_exploits": {"fn": tool_search_exploits, "description": "Search ExploitDB. Args: query (str) e.g. 'apache 2.4.49' or 'juice shop'"},
-    "rag_query":       {"fn": tool_rag_query,       "description": "Query red team knowledge base. Args: query (str), phase (recon|scanning|exploitation|privesc|exfil|all), top_k (int)"},
-    "cve_lookup":      {"fn": tool_cve_lookup,      "description": "Look up CVEs for a product. Args: product (str), version (str)"},
-    "report_finding":  {"fn": tool_report_finding,  "description": "Record a finding. Args: title, severity (critical|high|medium|low), host, description, technique_id, remediation"},
+    "tcp_scan":        {"fn": tool_tcp_scan,        "description": "TCP port scan. Args: host (str), ports (list)"},
+    "nmap_port_scan":  {"fn": tool_nmap_port_scan,  "description": "Nmap scan. Args: host (str), ports (str like 21,22,80,443), flags (str optional)"},
+    "nmap_ping_sweep": {"fn": tool_nmap_ping_sweep, "description": "Find live hosts. Args: target (str)"},
+    "nmap_vuln_scan":  {"fn": tool_nmap_vuln_scan,  "description": "Nmap vuln scripts. Args: host (str), ports (str)"},
+    "http_probe":      {"fn": tool_http_probe,      "description": "Probe HTTP. Args: url (str), method (str)"},
+    "http":            {"fn": tool_http_probe,      "description": "Alias http_probe. Args: url (str)"},
+    "dns_resolve":     {"fn": tool_dns_resolve,     "description": "Resolve hostname. Args: hostname (str)"},
+    "run_command":     {"fn": tool_run_command,     "description": "Run tool command. Args: command (str), timeout (int). Allowed: nmap curl nikto sqlmap gobuster whatweb hydra searchsploit msfconsole"},
+    "shell":           {"fn": tool_shell,           "description": "Alias run_command. Args: command (str), timeout (int)"},
+    "search_exploits": {"fn": tool_search_exploits, "description": "Search ExploitDB. Args: query (str)"},
+    "rag_query":       {"fn": tool_rag_query,       "description": "Query knowledge base. Args: query (str), phase (recon|exploitation|privesc|all), top_k (int)"},
+    "cve_lookup":      {"fn": tool_cve_lookup,      "description": "Look up CVEs. Args: product (str), version (str)"},
+    "report_finding":  {"fn": tool_report_finding,  "description": "Record finding. Args: title, severity (critical|high|medium|low), host, description, technique_id, remediation"},
 }
 
-def get_tool_descriptions() -> str:
-    return "\n".join(f"- {name}: {info['description']}" for name, info in TOOLS.items())
+
+def _normalize(name: str) -> str:
+    return name.strip().replace(" ", "_").replace("-", "_").lower()
+
 
 def execute_tool(name: str, args: dict) -> str:
-    if name not in TOOLS:
-        return f"Unknown tool: '{name}'. Available: {list(TOOLS.keys())}"
-    try:
-        return str(TOOLS[name]["fn"](args))
-    except Exception as e:
-        return f"Tool '{name}' error: {e}"
+    clean = _normalize(name)
+    if clean in TOOLS:
+        try:
+            return str(TOOLS[clean]["fn"](args))
+        except Exception as e:
+            return f"Tool {clean} error: {e}"
+    matches = [k for k in TOOLS if k.startswith(clean[:8])]
+    if len(matches) == 1:
+        try:
+            return str(TOOLS[matches[0]]["fn"](args))
+        except Exception as e:
+            return f"Tool {matches[0]} error: {e}"
+    return f"Unknown tool: {name}. Available: {list(TOOLS.keys())}"
+
+
+def get_tool_descriptions() -> str:
+    return "\n".join(f"- {n}: {i['description']}" for n, i in TOOLS.items())
