@@ -185,12 +185,13 @@ def tool_rag_query(args):
     phase       = args.get("phase", "all")
     top_k       = int(args.get("top_k", 5))
     if not query:
-        return "ERROR: query required"
+        return json.dumps({"error": "ERROR: query required", "results": []})
     try:
         rag = RAGRetriever(qdrant_path=qdrant_path)
-        return rag.query_phase(phase=phase, context=query, top_k=top_k)
+        results = rag.query(query_text=query, phase=phase, top_k=top_k)
+        return json.dumps({"results": results})
     except Exception as e:
-        return f"RAG query error: {e}"
+        return json.dumps({"error": f"RAG query error: {e}", "results": []})
 
 def tool_cve_lookup(args):
     product = args.get("product", "")
