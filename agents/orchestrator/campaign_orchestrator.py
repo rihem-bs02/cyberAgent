@@ -4,7 +4,7 @@ Controls the full kill chain. Each phase is run by an autonomous ReAct agent
 that uses real tool execution (nmap, sqlmap, curl, msfconsole) and feeds actual
 output back into the LLM for the next reasoning step.
 
-Layer 2: ReActAgent — Observe → Think → Act loop per phase
+Layer 2: AutonomousAgent — Observe → Think → Act loop per phase
 Layer 3: AttackGraph (Neo4j) + LettaMemory (cross-campaign recall)
 """
 import uuid, json, os, sys
@@ -22,7 +22,7 @@ from knowledge.qdrant.rag_retriever import RAGRetriever
 from config.settings import STEALTH_LEVEL, REPORTS_DIR
 
 # ── Layer 2 — ReAct + Tool Registry ──────────────────────────────────────────
-from agents.autonomous_agent   import ReActAgent, build_react_summary
+from agents.autonomous_agent import AutonomousAgent
 from agents.tools.tool_registry import ToolRegistry
 
 # ── Layer 3 — Attack Graph + Memory ──────────────────────────────────────────
@@ -49,7 +49,6 @@ class CampaignOrchestrator:
         # ── Core services ─────────────────────────────────────────────────────
         self.llm    = LLMClient()
         self.rag    = RAGRetriever(qdrant_path=qdrant_path)
-        self.engine = AutonomousDecisionEngine(llm=self.llm)
 
         # ── Layer 2: Tool execution ───────────────────────────────────────────
         self.tools  = ToolRegistry()
@@ -58,6 +57,9 @@ class CampaignOrchestrator:
         # ── Layer 3: Persistent intelligence ─────────────────────────────────
         self.graph  = AttackGraph()
         self.memory = LettaMemory()
+
+        # ── Autonomous decision engine ───────────────────────────────────────
+        self.engine = AutonomousDecisionEngine(llm=self.llm)
         mem_status  = self.memory.status_report()
         logger.info(
             f"LettaMemory: {mem_status['backend']} | "
@@ -137,16 +139,9 @@ class CampaignOrchestrator:
                 state.rag_context[f"{phase.value}_memory"] = mem_context
 
             # ── Build and run ReAct agent for this phase ───────────────────────
+            success = False
             try:
-                react_agent = ReActAgent(
-                    phase         = phase.value,
-                    llm           = self.llm,
-                    tool_registry = self.tools,
-                    rag           = self.rag,
-                    engine        = self.engine,
-                    max_steps     = self.phase_max_steps.get(phase, 6),
-                )
-                success = react_agent.run(state)
+                react_agent = AutonomousAgent(qdrant_path=self.qdrant_path)
 
             except Exception as e:
                 logger.error(f"Phase {phase.value} crashed: {e}")
@@ -286,7 +281,7 @@ Create attack plan. JSON:
 
         # Build ReAct trace summary
         react_traces = getattr(state, "react_traces", {})
-        react_summary = build_react_summary(react_traces)
+        react_summary = (react_traces)
 
         report = {
             "metadata": {

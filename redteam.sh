@@ -40,7 +40,7 @@ check_env() {
         cat > "$ENV_FILE" << 'EOF'
 GROQ_API_KEY=your_groq_api_key_here
 GROQ_MODEL_HEAVY=llama-3.3-70b-versatile
-GROQ_MODEL_FAST=qwen-qwq-32b
+GROQ_MODEL_FAST=qwen
 EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
 STEALTH_LEVEL=high
 LOG_LEVEL=INFO

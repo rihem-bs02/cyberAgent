@@ -32,7 +32,7 @@ if not exist ".env" (
         echo.
         echo # ── Models ─────────────────────────────────────────────
         echo GROQ_MODEL_HEAVY=llama-3.3-70b-versatile
-        echo GROQ_MODEL_FAST=qwen-qwq-32b
+        echo GROQ_MODEL_FAST=qwen
         echo LOCAL_MODEL=qwen
         echo EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
         echo.

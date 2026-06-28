@@ -24,7 +24,7 @@ from config.settings import STEALTH_LEVEL
 console = Console(force_terminal=True, highlight=False)
 
 # ── IMPORTANT: update this to your actual Qdrant data path ───────────────────
-DEFAULT_QDRANT_PATH = r"C:\Users\rihem\Desktop\datasetAGENT\qdrant"
+DEFAULT_QDRANT_PATH = "/dataset/qdrant"
 
 
 def main():

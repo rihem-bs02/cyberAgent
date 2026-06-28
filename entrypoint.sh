@@ -11,14 +11,16 @@ echo "║     Red Team Agent — Docker Container        ║"
 echo "╚══════════════════════════════════════════════╝"
 echo ""
 
-# ── Check GROQ_API_KEY ────────────────────────────────────────────────────────
-if [ -z "$GROQ_API_KEY" ] || [ "$GROQ_API_KEY" = "your_groq_api_key_here" ]; then
-    echo "ERROR: GROQ_API_KEY not set."
-    echo "Set it in your .env file or pass it with:"
-    echo "  docker run -e GROQ_API_KEY=your_key ..."
-    exit 1
+# ── LLM Provider Check ───────────────────────────────────────────────────────
+if [ "$USE_OLLAMA" = "true" ]; then
+    echo "[OK] Using Ollama at $OLLAMA_BASE_URL"
+else
+    if [ -z "$GROQ_API_KEY" ] || [ "$GROQ_API_KEY" = "your_groq_api_key_here" ]; then
+        echo "ERROR: GROQ_API_KEY not set and Ollama disabled."
+        exit 1
+    fi
+    echo "[OK] Using Groq"
 fi
-echo "[OK] GROQ_API_KEY found"
 
 # ── Wait for Qdrant ───────────────────────────────────────────────────────────
 if [ -n "$QDRANT_HOST" ] && [ "$QDRANT_HOST" != "localhost" ]; then

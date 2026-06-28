@@ -35,7 +35,7 @@ NEO4J_PASSWORD      = os.getenv("NEO4J_PASSWORD") or os.getenv("NEO4J_PASS") or 
 NVD_API_KEY         = os.getenv("NVD_API_KEY", "")
 
 # ── Campaign ───────────────────────────────────────────
-SAFE_MODE           = os.getenv("SAFE_MODE", "true").lower() == "false"
+SAFE_MODE           = os.getenv("SAFE_MODE", "true").lower() == "true"
 STEALTH_LEVEL       = os.getenv("STEALTH_LEVEL", "high")
 MAX_THREADS         = int(os.getenv("MAX_THREADS", 4))
 LOG_LEVEL           = os.getenv("LOG_LEVEL", "INFO")
