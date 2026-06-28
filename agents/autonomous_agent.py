@@ -24,7 +24,7 @@ from rich import box
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from core.llm_client import LLMClient
-from tools.tool_registry import execute_tool, get_tool_descriptions, get_tool_schema
+from tools.tool_registry import execute_tool, get_tool_descriptions
 
 console = Console()
 
