@@ -19,9 +19,9 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # ── Install system dependencies ───────────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Python 3.11
-    python3.11 \
-    python3.11-dev \
-    python3.11-venv \
+    python3 \
+    python3-dev \
+    python3-venv \
     python3-pip \
     # Security tools
     nmap \
