@@ -999,8 +999,28 @@ Use 'done' ONLY when objective is fully achieved or all possibilities exhausted.
 # ============================================================
 
 if __name__ == "__main__":
+    from dotenv import load_dotenv
+    load_dotenv()
+    
+    # Resolve Qdrant path from environment or check fallback paths
+    qdrant_path = os.getenv("QDRANT_PATH")
+    if not qdrant_path:
+        possible_paths = [
+            "./qdrant",
+            "../qdrant",
+            "/dataset/qdrant",
+            "/app/data/qdrant",
+            "/app/qdrant_data",
+        ]
+        for p in possible_paths:
+            if os.path.exists(p):
+                qdrant_path = p
+                break
+        else:
+            qdrant_path = "./qdrant"
+
     # Initialize agent with knowledge base path
-    agent = AutonomousAgent(qdrant_path="path/to/qdrant/storage")
+    agent = AutonomousAgent(qdrant_path=qdrant_path)
     
     # Run campaign
     report = agent.run(

@@ -12,10 +12,22 @@ if sys.stderr.encoding and sys.stderr.encoding.upper() != "UTF-8":
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from agents.autonomous_agent import AutonomousAgent
 
 console = Console(force_terminal=True, highlight=False)
-DEFAULT_QDRANT_PATH = os.getenv("QDRANT_PATH", "/dataset/qdrant")
+
+# Resolve default Qdrant path
+DEFAULT_QDRANT_PATH = os.getenv("QDRANT_PATH")
+if not DEFAULT_QDRANT_PATH:
+    if os.path.exists("./qdrant"):
+        DEFAULT_QDRANT_PATH = "./qdrant"
+    elif os.path.exists("/dataset/qdrant"):
+        DEFAULT_QDRANT_PATH = "/dataset/qdrant"
+    else:
+        DEFAULT_QDRANT_PATH = "./qdrant"
 
 def main():
     parser = argparse.ArgumentParser(description="Autonomous Red Team Agent")
